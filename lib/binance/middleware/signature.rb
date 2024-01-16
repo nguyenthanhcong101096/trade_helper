@@ -9,7 +9,7 @@ module Binance
         hash = OpenSSL::HMAC.hexdigest(
           OpenSSL::Digest.new("sha256"), secret, env.url.query
         )
-        env.url.query = Fbinance::Utils::BuildQuery.add_param(env.url.query, "signature", hash)
+        env.url.query = Binance::Utils.add_param(env.url.query, "signature", hash)
         app.call env
       end
     end

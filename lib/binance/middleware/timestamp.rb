@@ -6,7 +6,7 @@ module Binance
   module Middleware
     Timestamp = Struct.new(:app) do
       def call(env)
-        env.url.query = Fbinance::Utils::BuildQuery.add_param(
+        env.url.query = Binance::Utils.add_param(
           env.url.query, "timestamp", DateTime.now.strftime("%Q")
         )
         app.call env

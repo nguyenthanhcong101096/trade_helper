@@ -15,23 +15,23 @@ module Binance
       @secret = secret
     end
 
-    def public_request(path: "/", params: {}, response_template: nil)
-      process_request(public_connection, :get, path, params, response_template)
+    def public_request(path: "/", params: {})
+      process_request(public_connection, :get, path, params)
     end
 
-    def limit_request(method: :get, path: "/", params: {}, response_template: nil)
-      process_request(limit_connection, method, path, params, response_template)
+    def limit_request(method: :get, path: "/", params: {})
+      process_request(limit_connection, method, path, params)
     end
 
-    def sign_request(method: :post, path:, params: {}, response_template: nil)
-      process_request(signed_connection, method, path, params, response_template)
+    def sign_request(method: :post, path:, params: {})
+      process_request(signed_connection, method, path, params)
     end
 
     private
 
-    def process_request(conn, method, path, params, response_template)
+    def process_request(conn, method, path, params)
       res = conn.send(method, path_with_query(path, params.compact), nil)
-      handle_response(res, response_template)
+      handle_response(res)
     end
 
     def public_connection
@@ -66,14 +66,18 @@ module Binance
 
     def prepare_headers(client)
       client.headers["Content-Type"] = "application/json"
-      client.headers["User-Agent"] = "binance-future-bot"
+      client.headers["User-Agent"] = "BINANCE-API-HELPER"
     end
 
     def handle_response(res, template)
       if [200, 201].include?(res.status)
-        body     = res.body
-        response = template ? template.mapping(JSON.parse(body)) : JSON.parse(body)
-        struct_message(true, body.nil? ? {} : response)
+        parse_body = JSON.parse(res.body)
+        response   = if parse_body.is_a?(Array)
+          parse_body.map { |i| i.deep_transform_keys { |key| key.to_s.underscore.to_sym } }
+        else
+          parse_body.deep_transform_keys { |key| key.to_s.underscore.to_sym }
+        end
+        response_message(true, res.body.nil? ? {} : response)
       else
         status_code = JSON.parse(res.body)["code"]
 
@@ -86,11 +90,13 @@ module Binance
           "-2027" => "Exceeded the maximum allowable position at current leverage."
         }[status_code.to_s] || res.body
 
-        struct_message(false, msg + " (from #{self.class.name})")
+        response_message(false, msg + " (from #{self.class.name})")
       end
+    rescue NoMethodError
+      response_message([200, 201].include?(res.status), JSON.parse(res.body))
     end
 
-    def struct_message(status, data)
+    def response_message(status, data)
       object = Struct.new(:success?, :data)
       object.new(status, data)
     end
